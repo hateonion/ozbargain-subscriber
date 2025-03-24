@@ -1,0 +1,23 @@
+name = "ozbargain-subscriber"
+main = "worker.js"
+compatibility_date = "2023-06-01"
+
+# Run this worker every hour
+[triggers]
+crons = ["0 * * * *"]
+
+# KV namespace for storing deals
+[[kv_namespaces]]
+binding = "DEALS_STORE"
+id = ""
+
+# Environment variables 
+# NOTE: For security, don't put actual tokens here!
+# Instead, use `wrangler secret put TELEGRAM_BOT_TOKEN` and
+# `wrangler secret put TELEGRAM_CHAT_ID` to securely set these values
+[vars]
+# You can set non-sensitive variables here
+# For example: REFRESH_INTERVAL = "3600"
+
+[observability]
+enabled = true
