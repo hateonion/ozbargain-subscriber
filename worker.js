@@ -41,8 +41,14 @@ async function processAndSendDeals(env) {
     const newDeals = filteredDeals.filter(deal => !previousDealIds.has(deal.id));
     
     try {
-      const currentDealIds = filteredDeals.map(deal => deal.id);
-      await env.DEALS_STORE.put('previous_deal_ids', JSON.stringify(currentDealIds));
+      // Add current deals to the previously seen deals for future checks
+      // Instead of replacing the list entirely, preserve history
+      const combinedDealIds = [...previousDealIds, ...filteredDeals.map(deal => deal.id)];
+      
+      // Keep only the most recent 1000 deals to avoid excessive storage
+      const recentDealIds = [...new Set(combinedDealIds)].slice(-1000);
+      
+      await env.DEALS_STORE.put('previous_deal_ids', JSON.stringify(recentDealIds));
     } catch (error) {
       console.error('Error saving deal IDs:', error);
     }
