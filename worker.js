@@ -1,3 +1,5 @@
+import { parseOzBargainFeed } from './xmlParser';
+
 async function handleRequest(request, env) {
   const url = new URL(request.url);
   
@@ -78,11 +80,11 @@ function getUrlsToFetch(env) {
   }
   
   return [
-    'https://www.ozbargain.com.au/?page=0',
-    'https://www.ozbargain.com.au/?page=1',
-    'https://www.ozbargain.com.au/?page=2',
-    'https://www.ozbargain.com.au/brand/american-express',
-    'https://www.ozbargain.com.au/tag/gift-card'
+    'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=0',
+    'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=1',
+    'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=2',
+    'https://www.ozbargain.com.au/brand/american-express/feed?noexpired=1',
+    'https://www.ozbargain.com.au/tag/gift-card/feed?noexpired=1'
   ];
 }
 
@@ -98,8 +100,8 @@ async function fetchDeals(env) {
         continue;
       }
       
-      const html = await response.text();
-      const pageDeals = parseHTML(html, url);
+      const xml = await response.text();
+      const pageDeals = parseOzBargainFeed(xml);
       allDeals = [...allDeals, ...pageDeals];
     } catch (error) {
       console.error(`Error fetching from ${url}:`, error);
@@ -119,226 +121,13 @@ async function fetchDeals(env) {
   return uniqueDeals;
 }
 
-function parseHTML(html, sourceUrl) {
-  const deals = [];
-  
-  if (sourceUrl.includes('?page=')) {
-    // First, try to find all deal nodes
-    const nodeMatches = html.match(/data-nid="(\d+)"/g) || [];
-    
-    for (const nodeMatch of nodeMatches) {
-      const idMatch = nodeMatch.match(/data-nid="(\d+)"/);
-      if (!idMatch) continue;
-      
-      const id = idMatch[1];
-      const nodeId = `data-nid="${id}"`;
-      
-      // Find the surrounding vote block by searching for the pattern
-      const voteBlockStart = html.indexOf(nodeId) - 200;
-      const voteBlockEnd = html.indexOf(nodeId) + 300;
-      
-      if (voteBlockStart < 0) continue;
-      
-      const voteBlock = html.substring(Math.max(0, voteBlockStart), 
-                                       Math.min(html.length, voteBlockEnd));
-      
-      // Extract votes using the exact pattern provided
-      let votesUp = 0;
-      const voteUpMatch = voteBlock.match(/<span class="nvb voteup"><i class="fa fa-plus"><\/i><span>(\d+)<\/span><\/span>/);
-      if (voteUpMatch) {
-        votesUp = parseInt(voteUpMatch[1], 10);
-      }
-      
-      let votesDown = 0;
-      const voteDownMatch = voteBlock.match(/<span class="nvb votedown"><i class="fa fa-minus"><\/i><span>(\d+)<\/span><\/span>/);
-      if (voteDownMatch) {
-        votesDown = parseInt(voteDownMatch[1], 10);
-      }
-      
-      // Find the title by looking for the node link
-      const titleRegex = new RegExp(`<a[^>]*?href="\/node\/${id}"[^>]*?>([^<]+)<\/a>`);
-      const titleMatch = voteBlock.match(titleRegex) || html.match(titleRegex);
-      
-      if (!titleMatch) continue;
-      
-      let title = titleMatch[1].trim();
-      
-      // Skip expired deals
-      const isExpired = title.toLowerCase().includes('expired') || 
-                      voteBlock.toLowerCase().includes('expired');
-      
-      if (isExpired) continue;
-      
-      // Extract category
-      let category = '';
-      const categoryMatch = title.match(/^\[([^\]]+)\]/) || voteBlock.match(/\[([^\]]+)\]/);
-      if (categoryMatch) {
-        category = categoryMatch[1].trim();
-      }
-      
-      // Clean up title
-      title = title.replace(/\s+/g, ' ').trim();
-      title = title.replace(/^\s*\[[^\]]+\]/, '').trim();
-      
-      deals.push({
-        id,
-        title,
-        link: `https://www.ozbargain.com.au/node/${id}`,
-        sourceUrl,
-        votes: {
-          positive: votesUp,
-          negative: votesDown,
-          total: votesUp - votesDown
-        },
-        categories: [category].filter(Boolean),
-        isExpired: false
-      });
-    }
-    
-    // If we didn't find any deals with the primary method, try the fallback
-    if (deals.length === 0) {
-      const dealRegex = /<a[^>]*?href="\/node\/(\d+)"[^>]*?>([^<]+)<\/a>/g;
-      let match;
-      
-      while ((match = dealRegex.exec(html)) !== null) {
-        const id = match[1];
-        let title = match[2].trim();
-        
-        if (title.length < 5) continue;
-        
-        // Find the vote div using data-nid attribute
-        const voteBlockRegex = new RegExp(`<div[^>]*?data-nid="${id}"[^>]*?>[\\s\\S]*?<\\/div>`);
-        const voteBlockMatch = html.match(voteBlockRegex);
-        
-        let votesUp = 0;
-        let votesDown = 0;
-        
-        if (voteBlockMatch) {
-          const voteBlock = voteBlockMatch[0];
-          const voteUpMatch = voteBlock.match(/<span class="nvb voteup"><i class="fa fa-plus"><\/i><span>(\d+)<\/span><\/span>/);
-          if (voteUpMatch) {
-            votesUp = parseInt(voteUpMatch[1], 10);
-          }
-          
-          const voteDownMatch = voteBlock.match(/<span class="nvb votedown"><i class="fa fa-minus"><\/i><span>(\d+)<\/span><\/span>/);
-          if (voteDownMatch) {
-            votesDown = parseInt(voteDownMatch[1], 10);
-          }
-        }
-        
-        // Skip expired deals
-        const isExpired = title.toLowerCase().includes('expired');
-        
-        if (isExpired) continue;
-        
-        // Extract category
-        let category = '';
-        const categoryMatch = title.match(/^\[([^\]]+)\]/) || 
-                             html.substring(match.index, match.index + 200).match(/\[([^\]]+)\]/);
-        if (categoryMatch) {
-          category = categoryMatch[1].trim();
-        }
-        
-        // Clean up title
-        title = title.replace(/\s+/g, ' ').trim();
-        title = title.replace(/^\s*\[[^\]]+\]/, '').trim();
-        
-        deals.push({
-          id,
-          title,
-          link: `https://www.ozbargain.com.au/node/${id}`,
-          sourceUrl,
-          votes: {
-            positive: votesUp,
-            negative: votesDown,
-            total: votesUp - votesDown
-          },
-          categories: [category].filter(Boolean),
-          isExpired: false
-        });
-      }
-    }
-  } 
-  else {
-    // For AMEX and gift card pages
-    const dealRegex = /<a[^>]*?href="\/node\/(\d+)"[^>]*?>([^<]*?)<\/a>/g;
-    let match;
-    
-    while ((match = dealRegex.exec(html)) !== null) {
-      const id = match[1];
-      let title = match[2].trim();
-      
-      // Skip irrelevant items
-      if (title.length < 5 || match[0].includes('/user/') || match[0].includes('/comment/')) {
-        continue;
-      }
-      
-      // Skip if not a node link
-      if (!match[0].includes('/node/')) {
-        continue;
-      }
-      
-      // Set appropriate title prefixes for special pages
-      if (sourceUrl.includes('american-express') && 
-          !title.toLowerCase().includes('amex') && 
-          !title.toLowerCase().includes('american express')) {
-        if (!title.toLowerCase().includes('americanexpress.com')) {
-          title = "AMEX Deal: " + title;
-        }
-      }
-      
-      if (sourceUrl.includes('gift-card') && 
-          !title.toLowerCase().includes('gift card') && 
-          !title.toLowerCase().includes('voucher')) {
-        title = "Gift Card: " + title;
-      }
-      
-      // Skip expired deals
-      const isExpired = title.toLowerCase().includes('expired');
-      if (isExpired) continue;
-      
-      // Clean up the title
-      title = title.replace(/\s+/g, ' ').trim();
-      title = title.replace(/\[expired\]/i, '').trim();
-      title = title.replace(/^\s*\[[^\]]+\]/, '').trim();
-      
-      // Set category based on page
-      const category = sourceUrl.includes('american-express') ? 'AMEX' : 'Gift Cards';
-      
-      deals.push({
-        id,
-        title,
-        link: `https://www.ozbargain.com.au/node/${id}`,
-        sourceUrl,
-        votes: {
-          positive: 0,
-          negative: 0,
-          total: 0
-        },
-        categories: [category],
-        isExpired: false
-      });
-    }
-  }
-  
-  return deals;
-}
+
 
 function filterDeals(deals, env) {
   const hotDealThreshold = getHotDealThreshold(env);
   
   return deals.filter(deal => {
-    // Include all AMEX and gift card deals
-    if (deal.sourceUrl.includes('american-express') || deal.sourceUrl.includes('gift-card')) {
-      return true;
-    }
-    
-    // For main pages, include only deals that exceed the vote threshold
-    if (deal.sourceUrl.includes('?page=')) {
-      return deal.votes.positive > hotDealThreshold;
-    }
-    
-    return false;
+    return deal.votesPos >= hotDealThreshold
   });
 }
 
@@ -356,14 +145,8 @@ async function sendToTelegram(deals, env) {
   let message = '🔥 *New OzBargain Deals* 🔥\n\n';
   
   for (const deal of deals) {
-    let emoji = '💰';
-    if (deal.sourceUrl.includes('american-express')) {
-      emoji = '💳';
-    } else if (deal.sourceUrl.includes('gift-card')) {
-      emoji = '🎁';
-    }
-    
-    const voteInfo = deal.votes.total > 0 ? `+${deal.votes.total} votes` : '';
+    const emoji = '💰';
+    const voteInfo = deal.votesPos > 0 ? `+${deal.votesPos} votes` : '';
     message += `${emoji} *${deal.title}*\n`;
     message += `[Link](${deal.link})${voteInfo ? ` | 👍 ${voteInfo}` : ''}\n\n`;
   }
