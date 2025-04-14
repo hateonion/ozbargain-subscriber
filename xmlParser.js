@@ -1,71 +1,82 @@
 export function parseOzBargainFeed(xmlString) {
-	try {
-		// Parse the XML string into a DOM document
-		const parser = new DOMParser();
-		const xmlDoc = parser.parseFromString(xmlString, "application/xml");
-
-		// Check for parsing errors
-		const parserError = xmlDoc.querySelector("parsererror");
-		if (parserError) {
-			throw new Error("XML parsing failed: " + parserError.textContent);
-		}
-
-		// Get all item elements
-		const items = xmlDoc.querySelectorAll("item");
-
-		// Array to store the parsed deals
-		const deals = [];
-
-		// Current date for expiry checking
-		// Process each item
-		items.forEach(item => {
-			// Extract deal ID from guid or link
-			const link = item.querySelector("link").textContent;
-			const dealId = link.split("/node/")[1];
-
-			// Extract deal title
-			const title = item.querySelector("title").textContent;
-
-			// Extract votes information (positive and negative)
-			const ozbMeta = item.querySelector("ozb\\:meta");
-			const votesPos = ozbMeta ? parseInt(ozbMeta.getAttribute("votes-pos"), 10) || 0 : 0;
-
-			// Extract deal link (URL to merchant)
-			const dealUrl = ozbMeta ? ozbMeta.getAttribute("url") : "";
-
-			// Extract deal image
-			const imageUrl = ozbMeta ? ozbMeta.getAttribute("image") : "";
-
-			// Extract category
-			const categoryElement = item.querySelector("category");
-			const category = categoryElement ? categoryElement.textContent : "";
-
-			// Check if the deal is expired
-			let isExpired = false;
-
-			// Check expiry based on ozb:title-msg
-			const expiredMsg = item.querySelector("ozb\\:title-msg[type='expired']");
-			if (expiredMsg) {
-				isExpired = true;
-			}
-
-			// Check expiry based on expiry date attribute
-			// Add more data as needed
-			deals.push({
-				id: dealId,
-				title,
-				votesPos,
-				dealUrl,
-				imageUrl,
-				category,
-				link,
-				isExpired
-			});
-		});
-
-		return deals;
-	} catch (error) {
-		console.error("Error parsing OzBargain feed:", error);
-		return [];
-	}
+  try {
+    const deals = [];
+    
+    // Split the XML string into items
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let itemMatch;
+    
+    while ((itemMatch = itemRegex.exec(xmlString)) !== null) {
+      const itemContent = itemMatch[1];
+      
+      // Extract deal ID from link
+      const linkMatch = /<link>(.*?)<\/link>/.exec(itemContent);
+      const link = linkMatch ? linkMatch[1] : '';
+      const dealId = link.split('/node/')[1];
+      
+      // Extract deal title
+      const titleMatch = /<title>(.*?)<\/title>/.exec(itemContent);
+      const title = titleMatch ? titleMatch[1] : '';
+      
+      // Extract votes information from ozb:meta
+      const ozbMetaMatch = /<ozb:meta([^>]*)>/.exec(itemContent);
+      let votesPos = 0;
+      let votesNeg = 0;
+      let dealUrl = '';
+      let imageUrl = '';
+      let commentCount = 0;
+      
+      if (ozbMetaMatch) {
+        const metaAttrs = ozbMetaMatch[1];
+        
+        // Extract votes
+        const votesPosMatch = /votes-pos="(\d+)"/.exec(metaAttrs);
+        votesPos = votesPosMatch ? parseInt(votesPosMatch[1], 10) : 0;
+        
+        const votesNegMatch = /votes-neg="(\d+)"/.exec(metaAttrs);
+        votesNeg = votesNegMatch ? parseInt(votesNegMatch[1], 10) : 0;
+        
+        // Extract deal URL
+        const urlMatch = /url="([^"]*)"/.exec(metaAttrs);
+        dealUrl = urlMatch ? urlMatch[1] : '';
+        
+        // Extract image URL
+        const imageMatch = /image="([^"]*)"/.exec(metaAttrs);
+        imageUrl = imageMatch ? imageMatch[1] : '';
+        
+        // Extract comment count
+        const commentMatch = /comment-count="(\d+)"/.exec(metaAttrs);
+        commentCount = commentMatch ? parseInt(commentMatch[1], 10) : 0;
+      }
+      
+      // Extract category
+      const categoryMatch = /<category domain="[^"]*">([^<]*)<\/category>/.exec(itemContent);
+      const category = categoryMatch ? categoryMatch[1] : '';
+      
+      // Check if the deal is expired
+      let isExpired = false;
+      
+      // Check for expired title message
+      const expiredMsgMatch = /<ozb:title-msg type="expired"/.test(itemContent);
+      if (expiredMsgMatch) {
+        isExpired = true;
+      }
+      
+      deals.push({
+        id: dealId,
+        title,
+        votesPos,
+        dealUrl,
+        imageUrl,
+        category,
+        link,
+        isExpired
+      });
+    }
+    
+    return deals;
+  } catch (error) {
+    console.error("Error parsing OzBargain feed:", error);
+    return [];
+  }
 }

@@ -1,14 +1,18 @@
 import { parseOzBargainFeed } from './xmlParser';
 
+const BLACKLISTED_CATEGORIES = [
+  'Gaming',
+]
+
 async function handleRequest(request, env) {
   const url = new URL(request.url);
   
-  if (url.searchParams.get('test') === 'true') {
-    const result = await processAndSendDeals(env);
-    return new Response(JSON.stringify(result, null, 2), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  // if (url.searchParams.get('test') === 'true') {
+  //   const result = await processAndSendDeals(env);
+  //   return new Response(JSON.stringify(result, null, 2), {
+  //     headers: { 'Content-Type': 'application/json' }
+  //   });
+  // }
   
   return new Response('OzBargain Deals Tracker - Add ?test=true to test', {
     headers: { 'Content-Type': 'text/plain' }
@@ -127,7 +131,7 @@ function filterDeals(deals, env) {
   const hotDealThreshold = getHotDealThreshold(env);
   
   return deals.filter(deal => {
-    return deal.votesPos >= hotDealThreshold
+    return deal.votesPos >= hotDealThreshold && BLACKLISTED_CATEGORIES.indexOf(deal.category) === -1;``
   });
 }
 
