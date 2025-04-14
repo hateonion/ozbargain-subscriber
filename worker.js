@@ -14,7 +14,7 @@ async function handleRequest(request, env) {
   //   });
   // }
   
-  return new Response('OzBargain Deals Tracker - Add ?test=true to test', {
+  return new Response('ok', {
     headers: { 'Content-Type': 'text/plain' }
   });
 }
@@ -87,6 +87,8 @@ function getUrlsToFetch(env) {
     'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=0',
     'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=1',
     'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=2',
+    'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=3',
+    'https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=4',
     'https://www.ozbargain.com.au/brand/american-express/feed?noexpired=1',
     'https://www.ozbargain.com.au/tag/gift-card/feed?noexpired=1'
   ];
