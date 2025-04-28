@@ -9,15 +9,17 @@ crons = ["0 * * * *"]
 # KV namespace for storing deals
 [[kv_namespaces]]
 binding = "DEALS_STORE"
-id = ""
+# Replace with your actual KV namespace ID from Cloudflare dashboard
+id = "<YOUR_KV_NAMESPACE_ID>"
 
 # Environment variables 
 # NOTE: For security, don't put actual tokens here!
 # Instead, use `wrangler secret put TELEGRAM_BOT_TOKEN` and
 # `wrangler secret put TELEGRAM_CHAT_ID` to securely set these values
 [vars]
-# You can set non-sensitive variables here
-# For example: REFRESH_INTERVAL = "3600"
+# Example of a non-sensitive variable (edit as needed):
+HOT_DEAL_THRESHOLD = "100"
+# URLS_TO_FETCH = '["https://www.ozbargain.com.au/deals/popular/feed?days=7&noexpired=1&page=0"]'
 
 [observability]
 enabled = true

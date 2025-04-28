@@ -7,6 +7,7 @@ const BLACKLISTED_CATEGORIES = [
 async function handleRequest(request, env) {
   const url = new URL(request.url);
   
+  // Test only
   // if (url.searchParams.get('test') === 'true') {
   //   const result = await processAndSendDeals(env);
   //   return new Response(JSON.stringify(result, null, 2), {
