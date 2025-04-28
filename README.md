@@ -1,3 +1,5 @@
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hateonion/ozbargain-subscriber)
+
 # OzBargain Subscriber
 
 A Cloudflare Worker that fetches hot deals from OzBargain, filters them by vote count and category, and sends new deals to a Telegram channel.
